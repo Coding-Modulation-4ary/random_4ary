@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <conio.h>
 #include <math.h>
@@ -9,97 +9,216 @@
 
 /*******************	Definition of Constants	**************************/
 const double PI = 3.14159;						////  Value of pi
-const double DELTA = 0.000005;						//// Defines the range of variation for the coefficients of the Equalizer
+const double DELTA = 0.000005;						//// Defines the range of variation for the coefficients of the Equalizer. // Độ nhạy của bộ cân bằng tín hiệu (Equalizer). Giá trị nhỏ giúp tăng độ chính xác.
 
 //const double DELTA				=	0.000005;						//// Defines the range of variation for the coefficients of the Equalizer
 																	//// If the value is large, the variation of the coefficients will be more stable,
-const int Training_Block = 3;								//// but it may fail to find the optimal value. If the variation is small, it may converge more precisely.
+								//// but it may fail to find the optimal value. If the variation is small, it may converge more precisely.
+const int Training_Block = 3; // Số khối dữ liệu dùng để huấn luyện mô hình.
 const int M_ary = 4;								//// the number of total symbols (2 ary = 1but (binary), 4 ary = 2bit, 3 ary = 1.5bit)
-const int BLOCK = 1000;      						//// the total block
-const int Page_Size = 1024;							//// Block size of the hologram
-const int Data_Size = Page_Size;
-const double SigmaB = 1.0;							////  Noise level of the hologram
-const int SELL = 5;								//// pixel center==0, Sell==odd
-const int Unit_Sell = 11;								//// The one block of one sell divided
+const int BLOCK = 1000;      						//// the total block. Tổng số khối dữ liệu để xử lý.
+const int Page_Size = 1024;							//// Block size of the hologram. Kích thước của mỗi khối dữ liệu.
+const int Data_Size = Page_Size;					//// Kích thước dữ liệu tương tự như Page_Size.
+const double SigmaB = 1.0;							////  Noise level of the hologram. Mức nhiễu (Noise level) trong tín hiệu holographic.
+const int SELL = 5;								//// pixel center==0, Sell==odd.  Pixel trung tâm (giá trị lẻ).
+const int Unit_Sell = 11;								//// The one block of one sell divided. Một khối dữ liệu được chia thành 11 phần nhỏ.
 
-const int Equalizer_Length = 5;								//// must set odd
-const int Pridictor_Length = 3;								////  Length of the predictor
-const int Adaptive_Length = 5;								//// Adaptive length
+const int Equalizer_Length = 5;								//// must set odd. Độ dài của bộ cân bằng tín hiệu (phải là số lẻ để cân bằng hai phía).
+const int Pridictor_Length = 3;								////  Length of the predictor. Độ dài của bộ dự đoán tín hiệu.
+const int Adaptive_Length = 5;								//// Adaptive length. Độ dài của bộ điều chỉnh tín hiệu thích nghi (Adaptive Equalizer).
 
-const double Mis_const = 1;								//// Specifies the constant for Mis-alignment
+const double Mis_const = 1;								//// Specifies the constant for Mis-alignment. Chỉ định giá trị hằng cho độ lệch (Mis-alignment)
 //// 0: Random, 1: const value (Mis_alignment_x, Mis_alignment_y)
-const double Mis_alignment_dB = 30;
-const double Mis_alignment_x = 0.0;
-const double Mis_alignment_y = 0.0;
-const int Target_Order = 3;								//// Order of the PR Target filter. Must be an odd number.
-const int depth = 29;								//// viterbi constraint
+const double Mis_alignment_dB = 30;  // Mức nhiễu (dB) do sai lệch.
+const double Mis_alignment_x = 0.0;  // Độ lệch trên trục X.
+const double Mis_alignment_y = 0.0;  // Độ lệch trên trục Y.
+const int Target_Order = 3;								//// Order of the PR Target filter. Must be an odd number. // Bậc của bộ lọc mục tiêu PR (phải là số lẻ).
+const int depth = 29;								//// viterbi constraint // Độ sâu ràng buộc của thuật toán Viterbi.
 
 const int noise_free = 1;								//// 0 : noise free, 1: noise exist
-const double START_SNR = 10;//int((SigmaB+0.0001)/0.05-36);
-const double END_SNR = START_SNR;
-const double SNR_INTERVAL = 1;
+const double START_SNR = 10;//int((SigmaB+0.0001)/0.05-36);  // Giá trị SNR ban đầu.
+const double END_SNR = START_SNR; // Giá trị SNR kết thúc.
+const double SNR_INTERVAL = 1; // Bước nhảy của SNR giữa các lần lặp.
 
-const char* mis[3] = { "mis0", "mis10", "mis20" };
-const int checkHist = 0; //1, lay hist
-const int Encoder = 11;
+const char* mis[3] = { "mis0", "mis10", "mis20" }; // Các mức sai lệch khác nhau để kiểm tra.
+const int checkHist = 0; //1, lay hist // 1: Lưu histogram, 0: Không lưu.
+const int Encoder = 11; // Phương pháp mã hóa: 
 //// 0: random, 10: 24mc_chi, 11: 46mc_chi
-const char* s_encoder[10] = { "ran","prof_park","kim_3_4","sun_park_69","kim_2_3","seungmin_69","gg_grad_23_modulation_kim","gg_grad_23_modulation_prof","gg_dmin2","gg_dmin2_state" };
+const char* s_encoder[10] = { "ran","prof_park","kim_3_4","sun_park_69","kim_2_3","seungmin_69","gg_grad_23_modulation_kim","gg_grad_23_modulation_prof","gg_dmin2","gg_dmin2_state" };  // Các phương pháp mã hóa tín hiệu.
 const int DRAWING_BER_CURVE = 1;				//// 0: float, 1: int
 
-double POWER = 1;							//// To maintain a consistent power level.
+double POWER = 1;							//// To maintain a consistent power level. // Duy trì mức công suất tín hiệu nhất quán.
 
 const int DETECTOR = 0;
-//// 0: 1D detector,
+//// 0: 1D detector, // Bộ phát hiện tín hiệu. 0: 1D detector.
 
-const int Modulation_Decoder = 0;	//// For ECC 4/6 codes. 0: Viterbi, 1: SOVA
-const int Iteration_Det_Dem = 1;	//// # of the iteration between detecter(2D SOVA) and demodulation (SOVA for demodulation)
-const char* s_detecter[8] = { "1D_Viterbi","2D_NPSOVA","2D NPSOVA Hard","Only AWGN","Adaptive 2D NPSOVA","proposed iterative 2D SOVA","2D Log-MAP","gg_grad_A" };
-const int Quantization = 0;								//// 1,2,3,4 : Quantization, else: None Quantization, 
+const int Modulation_Decoder = 0;	//// For ECC 4/6 codes. 0: Viterbi, 1: SOVA // Giải mã tín hiệu. 0: Viterbi, 1: SOVA.
+const int Iteration_Det_Dem = 1;	//// # of the iteration between detecter(2D SOVA) and demodulation (SOVA for demodulation)  // Số lần lặp giữa phát hiện tín hiệu và giải mã.
+const char* s_detecter[8] = { "1D_Viterbi","2D_NPSOVA","2D NPSOVA Hard","Only AWGN","Adaptive 2D NPSOVA","proposed iterative 2D SOVA","2D Log-MAP","gg_grad_A" };  // Các phương pháp phát hiện tín hiệu.
+const int Quantization = 0;								//// 1,2,3,4 : Quantization, else: None Quantization, // 1,2,3,4: Có lượng tử hóa. Khác: Không lượng tử hóa.
 
-const int NoiseFilter = 0;								//// 0: No noisefilter,  1: use noisefilter
-const int Adaptive_yesornot = 0;								//// 0: No adaptive,  1: use adaptive
-const int AdaptiveNF_yesornot = 0;								//// 0: No adaptive Nosefilter,  1: use adaptive Nosefilter
+const int NoiseFilter = 0;								//// 0: No noisefilter,  1: use noisefilter  // 0: Không dùng bộ lọc nhiễu, 1: Dùng bộ lọc nhiễu.
+const int Adaptive_yesornot = 0;								//// 0: No adaptive,  1: use adaptive  // 0: Không dùng Adaptive Equalizer, 1: Dùng Adaptive Equalizer.
+const int AdaptiveNF_yesornot = 0;								//// 0: No adaptive Nosefilter,  1: use adaptive Nosefilter // 0: Không dùng bộ lọc nhiễu thích nghi, 1: Có dùng.
 
-const int M_number = 4;								//// 0: no adapt M-alorithm, 1~ : adapt M-alorithm number
-const int Constant_period = 0;								//// In M-algirhtm, not use M-algorithm from Constant_period to 0 reversly
-const int lee_proposed_method = 0;	//// 0: 1st-8state, 1: 2nd-8state, 2: 3rd-0state, 3: 4th-16state
-const int lee_proposed_constraint = 30;	//// 30, 100, 500, 2000
+const int M_number = 4;								//// 0: no adapt M-alorithm, 1~ : adapt M-alorithm number  // Số giá trị cho thuật toán M-algorithm.
+const int Constant_period = 0;								//// In M-algirhtm, not use M-algorithm from Constant_period to 0 reversly // Không sử dụng M-algorithm từ Constant_period đến 0 ngược lại.
+const int lee_proposed_method = 0;	//// 0: 1st-8state, 1: 2nd-8state, 2: 3rd-0state, 3: 4th-16state  // Phương pháp đề xuất: 
+const int lee_proposed_constraint = 30;	//// 30, 100, 500, 2000 // Ràng buộc: 30, 100, 500, 2000.
 
-const int SCALE_DEMODUL = 10;								//// During de-modulating, the number applied Viterbi decoder
+const int SCALE_DEMODUL = 10;								//// During de-modulating, the number applied Viterbi decoder  // Số lần áp dụng giải mã trong quá trình de-modulation.
 
-long k_noise = 1;
+long k_noise = 1;   // Hệ số nhiễu trong quá trình xử lý tín hiệu.
 
 //////////////////////// In Viterbi, cases with 03 and 30 states are excluded ///////////////////////////////////////
-const int gg_pr_viterbi = 0;							///     1 : proposed, else : conventional
-const int gg_reduce_last = 0;
-int ggg = 0;
-const int modul_method = 1;							///		0 : state 8, 1 : state 16
+const int gg_pr_viterbi = 0;		 // 1: Phương pháp Viterbi đề xuất, khác: Viterbi thông thường.					///     1 : proposed, else : conventional
+const int gg_reduce_last = 0;   // Tùy chọn giảm số trạng thái cuối.
+int ggg = 0;  // Biến tạm thời (debug hoặc điều khiển trạng thái).
+const int modul_method = 1;							///		0 : state 8, 1 : state 16  // Phương pháp điều chế: 0: state 8, 1: state 16.
 
-
-
+/*
+ * Performs 2D quantization on the input data matrix.
+ * Parameters:
+ * - data: Input 2D matrix of data.
+ * - outdata: Output 2D matrix after quantization.
+ * - Page_Size: Number of elements in each page.
+ * - max: Maximum value in the data range.
+ * - min: Minimum value in the data range.
+ * - quantization_number: Number of levels for quantization.
+ */
 void TwoD_Quantization(double** data, double** outdata, int Page_Size, double max, double min, int quantization_number);
+/*
+ * Simulates the holographic channel by applying noise and distortion.
+ * Parameters:
+ * - h: Output 2D matrix representing the channel response.
+ * - SigmaB: Noise level for the channel.
+ * - Mis_alignment_sigma: Misalignment noise level.
+ * - SELL: Size of pixel center (odd number).
+ * - Unit_Sell: Number of subdivisions in one sell.
+ */
 void HoloChannel(double** h, double SigmaB, double Mis_alignment_sigma, int SELL, int Unit_Sell);
+/*
+ * Sets the coefficients for the PR Target filter.
+ * Parameters:
+ * - Target_Coef: Output 2D array of filter coefficients.
+ * - target_order: Order of the filter (must be odd).
+ */
 void PR_Target_set(double** Target_Coef, int target_order);
+/*
+ * Performs convolution with PRML (Partial Response Maximum Likelihood).
+ * Parameters:
+ * - trellis: 2D array representing the trellis structure.
+ * - Target_Coef: Coefficients of the PR Target filter.
+ * - Target_Order: Order of the PR Target filter.
+ */
 void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order);
+/*
+ * Simulates the output of the holographic channel.
+ * Parameters:
+ * - outCH: Output 2D array after channel processing.
+ * - h: Channel response matrix.
+ * - inCH: Input 2D array representing the channel input.
+ * - Page_Size: Size of the page being processed.
+ * - SELL: Size of pixel center (odd number).
+ * - sigma: Noise level in the channel.
+ */
 void Hologram_ChannelOut(double** outCH, double** h, int** inCH, int Page_Size, int SELL, double sigma);
+/*
+ * Applies an equalizer in the X direction for holographic data.
+ * Parameters:
+ * - outEQ: Output equalized data.
+ * - eq_coef: Equalizer coefficients.
+ * - inEQ: Input data to the equalizer.
+ * - Page_Size: Size of the data page.
+ * - SELL: Pixel center size.
+ * - Equalizer_Length: Length of the equalizer filter.
+ * - Training: Whether training mode is enabled.
+ * - inCH: Input channel data.
+ * - Target_Coef: Coefficients of the PR Target filter.
+ * - Target_Order: Order of the PR Target filter.
+ */
 void Hologram_EqualizerOut_x(double** outEQ, double** eq_coef, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int Training, int** inCH, double** Target_Coef, int Target_Order);
+/*
+ * Applies an equalizer in the Y direction for holographic data.
+ * (Parameters are similar to Hologram_EqualizerOut_x.)
+ */
 void Hologram_EqualizerOut_y(double** outEQ, double** eq_coef, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int Training, int** inCH, double** Target_Coef, int Target_Order);
-void NPML_Pridictor_x(double* Pridictor_Coef_x, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int** inCH, double** Target_Coef, int Target_Order, int Pridictor_Length);
-void NPML_Pridictor_y(double* Pridictor_Coef_y, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int** inCH, double** Target_Coef, int Target_Order, int Pridictor_Length);
-void Hologram_SOVA_x(double** out_SOVA, double** eq_out, double** EI, double** trellis, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
-void Hologram_SOVA_y(double** out_SOVA, double** eq_out, double** EI, double** trellis, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
-void MakeInterleaverFile(int* Int, int* DeInt, int nSize);
-void Interleaver_for_Holo(int** Page, int** Inter_Page, int* Inter_table, int Page_Size);
-void Interleaver_for_Holo(double** Page, double** Inter_Page, int* Inter_table, int Page_Size);
+/*
+ * Generates predictor coefficients in the X direction for holographic data.
+ * Parameters:
+ * - Pridictor_Coef_x: Output predictor coefficients.
+ * - inEQ: Input equalized data.
+ * - Page_Size: Size of the data page.
+ * - SELL: Pixel center size.
+ * - Equalizer_Length: Length of the equalizer filter.
+ * - inCH: Input channel data.
+ * - Target_Coef: Coefficients of the PR Target filter.
+ * - Target_Order: Order of the PR Target filter.
+ * - Pridictor_Length: Length of the predictor filter.
+ */
 
+void NPML_Pridictor_x(double* Pridictor_Coef_x, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int** inCH, double** Target_Coef, int Target_Order, int Pridictor_Length);
+/*
+ * Similar to NPML_Pridictor_x but operates in the Y direction.
+ */
+void NPML_Pridictor_y(double* Pridictor_Coef_y, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int** inCH, double** Target_Coef, int Target_Order, int Pridictor_Length);
+/*
+ * Performs SOVA decoding for holographic data in the X direction.
+ * Parameters:
+ * - out_SOVA: Output data after SOVA decoding.
+ * - eq_out: Equalized input data.
+ * - EI: Extrinsic information for decoding.
+ * - trellis: Trellis structure for decoding.
+ * - Pridictor_Coef: Predictor coefficients.
+ * - Pridictor_Length: Length of the predictor.
+ * - Target_Order: Order of the PR Target filter.
+ * - Page_Size: Size of the data page.
+ * - depth: Depth constraint of the trellis.
+ */
+void Hologram_SOVA_x(double** out_SOVA, double** eq_out, double** EI, double** trellis, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
+/*
+ * Similar to Hologram_SOVA_x but operates in the Y direction.
+ */
+void Hologram_SOVA_y(double** out_SOVA, double** eq_out, double** EI, double** trellis, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
+/*
+ * Generates interleaver and de-interleaver tables for holographic data.
+ * Parameters:
+ * - Int: Interleaver table.
+ * - DeInt: De-interleaver table.
+ * - nSize: Size of the table.
+ */
+void MakeInterleaverFile(int* Int, int* DeInt, int nSize);
+/*
+ * Applies interleaving to holographic data (integer version).
+ * Parameters:
+ * - Page: Input page data.
+ * - Inter_Page: Output interleaved page data.
+ * - Inter_table: Interleaver table.
+ * - Page_Size: Size of the page.
+ */
+void Interleaver_for_Holo(int** Page, int** Inter_Page, int* Inter_table, int Page_Size);
+/*
+ * Applies interleaving to holographic data (double version).
+ */
+void Interleaver_for_Holo(double** Page, double** Inter_Page, int* Inter_table, int Page_Size);
+/*
+ * Performs PRML convolution for holographic data with GG Gradient 23.
+ */
 void PRML_Convolution_gg_grad_23(double** trellis, double* Target_Coef, int Target_Order, int input_size, int* input);
+/*
+ * Similar to PRML_Convolution_gg_grad_23 but applies to specific modular trellises.
+ */
 void PRML_Convolution_for_modul_gg_grad_23(int*** trellis_modul);
 void PRML_Convolution_for_modul_gg_grad_23_prof(int*** trellis_modul);
 void PRML_Convolution_for_modul_gg_grad_23_prof_method0(int**** trellis_modul);
 void PRML_Convolution_for_modul_gg_dmin2(int*** trellis_modul);
 void PRML_Convolution_for_modul_gg_dmin2_method0(int**** trellis_modul);
-void Hologram_SOVA_x_for_gg_grad(double** out_SOVA, double** eq_out, double** EI, double** trellis, double** trellisA, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
 
+/*
+ * Performs SOVA decoding with additional trellis data for holographic data in the X direction.
+ * Parameters are similar to Hologram_SOVA_x but include an additional trellisA parameter.
+ */
+void Hologram_SOVA_x_for_gg_grad(double** out_SOVA, double** eq_out, double** EI, double** trellis, double** trellisA, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth);
 
 
 void main()
@@ -897,7 +1016,7 @@ void main()
 
 
 	c_time = clock() - c_time; // c_time Check End 
-	//fprintf(fber, "%d�� %d�� %d���Դϴ�. \n", int(c_time / CLOCKS_PER_SEC) / 3600, (int(c_time / CLOCKS_PER_SEC) % 3600) / 60, int(c_time / CLOCKS_PER_SEC) % 60);
+	//fprintf(fber, "%d½Ã %dºÐ %dÃÊÀÔ´Ï´Ù. \n", int(c_time / CLOCKS_PER_SEC) / 3600, (int(c_time / CLOCKS_PER_SEC) % 3600) / 60, int(c_time / CLOCKS_PER_SEC) % 60);
 	printf("%dhour %dmin %dsec. \n", int(c_time / CLOCKS_PER_SEC) / 3600, (int(c_time / CLOCKS_PER_SEC) % 3600) / 60, int(c_time / CLOCKS_PER_SEC) % 60);
 
 	getchar();
@@ -1932,7 +2051,7 @@ void Hologram_SOVA_x_for_gg_grad(double** viterbi_out, double** eq_out, double**
 						viterbi_out[x][y - (depth - 1)] = int(Viterbi_State[Viterbi_temp][depth - 1][0]);
 				}
 
-				// shift the memory of path and state and errors�޸𸮸� shift��Ű�� ����
+				// shift the memory of path and state and errors¸Þ¸ð¸®¸¦ shift½ÃÅ°´Â ±¸Á¶
 				for (i = 0; i < total_states; i++)
 				{
 					Viterbi_Path[i][1] = Viterbi_Path[i][0];
