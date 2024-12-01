@@ -16,7 +16,7 @@ const double DELTA = 0.000005;						//// Defines the range of variation for the 
 								//// but it may fail to find the optimal value. If the variation is small, it may converge more precisely.
 const int Training_Block = 3; // Số khối dữ liệu dùng để huấn luyện mô hình.
 const int M_ary = 4;								//// the number of total symbols (2 ary = 1but (binary), 4 ary = 2bit, 3 ary = 1.5bit)
-const int BLOCK = 1000;      						//// the total block. Tổng số khối dữ liệu để xử lý.
+const int BLOCK = 5;      						//// the total block. Tổng số khối dữ liệu để xử lý.
 const int Page_Size = 1024;							//// Block size of the hologram. Kích thước của mỗi khối dữ liệu.
 const int Data_Size = Page_Size;					//// Kích thước dữ liệu tương tự như Page_Size.
 const double SigmaB = 1.0;							////  Noise level of the hologram. Mức nhiễu (Noise level) trong tín hiệu holographic.
@@ -226,37 +226,42 @@ void main()
 	clock_t c_time;
 	c_time = clock(); // c_time Check Start 
 
-	int i, j, k;
+	int i, j, k; // Biến vòng lặp
 
-	int A_input[2] = { 0,1 };
-	int BC_input[4] = { 0,1,2,3 };
-	int total_states_method0 = 0;
+	int A_input[2] = { 0,1 }; // 2 biến ban đầu là 0 và 1
+	int BC_input[4] = { 0,1,2,3 }; // 4-ary 
+	int total_states_method0 = 0; // Đếm tổng số trạng thái của hệ thống hoặc thuật toán được cấu hình ở method0.
 
-	double** trellis_A;
+	double** trellis_A; // Biến này sẽ được sử dụng để lưu cấu trúc trellis cho PRML hoặc SOVA decoding. Cấu trúc trellis là một phần quan trọng trong giải mã tín hiệu modulation code. Dữ liệu này có thể chứa các giá trị trạng thái hoặc xác suất chuyển tiếp giữa các trạng thái.
 
 
-	int file_see = 0;
+	int file_see = 0; // Biến này có thể được sử dụng để đánh dấu trạng thái của tệp hoặc để kiểm tra xem tệp có được xử lý (hoặc mở) thành công không.
 
-	FILE* OUT, * BRIEF_RESULT, * BRIEF_RESULT_MIS, * fber, * CHOUT[M_ary], * gg_fp_en, * gg_fp_de, * gg_fp_pattern;
+	FILE* OUT, * BRIEF_RESULT, * BRIEF_RESULT_MIS, * fber, * CHOUT[M_ary], * gg_fp_en, * gg_fp_de, * gg_fp_pattern; // Các biến này là con trỏ tới tệp được sử dụng để ghi dữ liệu kết quả hoặc dữ liệu trung gian trong quá trình thực thi chương trình.
 
-	fber = fopen("test.dat", "w");
-	BRIEF_RESULT = fopen("breif_result.m", "a");
-	BRIEF_RESULT_MIS = fopen("breif_result_mis.m", "a");
+	fber = fopen("test.dat", "w"); // Tệp dùng để ghi dữ liệu thử nghiệm. Dữ liệu trong tệp này có thể là các chỉ số hiệu suất hoặc tín hiệu kiểm tra.
+	BRIEF_RESULT = fopen("breif_result.m", "a"); // Lưu các kết quả chung.
+	BRIEF_RESULT_MIS = fopen("breif_result_mis.m", "a"); // Lưu các kết quả liên quan đến sai lệch (misalignment).
+	// CHOUT[M_ary]:  Một mảng con trỏ tệp, số lượng tệp phụ thuộc vào giá trị M_ary (4 trong trường hợp 4-ary modulation). Lưu tín hiệu đầu ra kênh ứng với các trạng thái modulation khác nhau.
 	gg_fp_en = fopen("encoded.dat", "a");
 	gg_fp_de = fopen("decoded.dat", "a");
 	gg_fp_pattern = fopen("pattern.dat", "a");
-
+	// Các mảng ký tự này được dùng để lưu đường dẫn hoặc tên tệp liên quan đến các mức sai lệch (misalignment).
+	// Kích thước 255 đảm bảo đủ lớn để chứa tên tệp dài.
 	char nameMis0[255];
 	char nameMis1[255];
 	char nameMis2[255];
 	char nameMis3[255];
 	char nameMis4[255];
 	char nameMis5[255];
+	// Các con trỏ tệp này lưu dữ liệu đầu ra từ các bước khác nhau của quá trình xử lý tín hiệu.
+	// Chúng được tổ chức theo loại dữ liệu:
+	FILE* fber_outCH, * fber_outCH_Mary; // Lưu dữ liệu tín hiệu từ kênh (Channel Output).
+	FILE* fber_outSOVA, * fber_outSOVA_Mary; // Lưu dữ liệu sau bước giải mã SOVA.
+	FILE* fber_outDEM, * fber_outDEM_Mary; //  Lưu dữ liệu từ bộ giải điều chế (Demodulator).
 
-	FILE* fber_outCH, * fber_outCH_Mary;
-	FILE* fber_outSOVA, * fber_outSOVA_Mary;
-	FILE* fber_outDEM, * fber_outDEM_Mary;
-
+	// Đoạn mã này tạo ra tên tệp động dựa trên giá trị của Mis_alignment_x, sau đó mở các tệp tương ứng để ghi dữ liệu đầu ra.
+	// Mis_alignment_x đại diện cho mức độ sai lệch trong trục X và được sử dụng để phân loại dữ liệu đầu ra theo các trường hợp sai lệch khác nhau.
 	if (Mis_alignment_x == 0)
 	{
 		sprintf(nameMis0, "%s_fber_outCH.txt", mis[0]);
@@ -314,48 +319,52 @@ void main()
 	}
 
 
+	unsigned long count = 0; // Biến đếm tổng số lần thực thi hoặc số lượng tín hiệu được xử lý trong toàn bộ chương trình.
+	unsigned long block_count = 0; // Biến đếm số khối dữ liệu (blocks) đã được xử lý.
+	unsigned long count_M_ary = 0; //  Biến đếm số tín hiệu được xử lý trong modulation code dạng M-ary (ví dụ: 4-ary hoặc 16-ary modulation).
+	unsigned long count_modul = 0;// Đếm số tín hiệu đã được mã hóa (modulated).
+	unsigned long count_modul_M_ary = 0; // Đếm số tín hiệu đã được mã hóa và phân loại theo modulation dạng M-ary.
+	unsigned long error = 0; //  Biến đếm tổng số lỗi phát sinh trong quá trình xử lý tín hiệu.
+	unsigned long error_M_ary = 0; //  Đếm số lỗi phát sinh trong các tín hiệu được mã hóa bằng modulation dạng M-ary.
+	unsigned long error_eq = 0; // Đếm số lỗi phát sinh sau bước cân bằng tín hiệu (Equalizer).
+	unsigned long error_eq_other = 0; // Đếm lỗi phát sinh trong các trường hợp khác không nằm trong bước cân bằng tín hiệu.
+	unsigned long error_viterbi[Iteration_Det_Dem * 2] = { 0, }; // Lưu lỗi phát sinh trong thuật toán giải mã Viterbi. Kích thước của mảng phụ thuộc vào Iteration_Det_Dem, biểu thị số lần lặp giữa phát hiện tín hiệu và giải mã.
+	unsigned long error_viterbi_M_ary[Iteration_Det_Dem * 2] = { 0, }; // Lưu lỗi giải mã Viterbi cho tín hiệu modulation dạng M-ary.
+	unsigned long error_viterbi_M_ary_gg[6] = { 0, }; // Mảng lưu lỗi giải mã Viterbi liên quan đến các thuật toán hoặc cấu hình modulation cụ thể (được biểu thị bằng "gg").
+	unsigned long error_demodul[Iteration_Det_Dem * 2] = { 0, }; // Lưu lỗi phát sinh trong bước giải điều chế.
+	unsigned long error_demodul_M_ary[Iteration_Det_Dem * 2] = { 0, }; // Lưu lỗi giải điều chế cho tín hiệu modulation dạng M-ary.
+	unsigned long error_demodul_check[Iteration_Det_Dem] = { 0, }; // Lưu lỗi giải điều chế cho tín hiệu modulation dạng M-ary.
 
+	int temp_count[M_ary] = { 0, }; // Mảng lưu số lượng tín hiệu thuộc từng trạng thái trong modulation dạng M-ary. Ví dụ: Nếu M_ary = 4, mảng này sẽ lưu số lượng tín hiệu cho các trạng thái {0, 1, 2, 3}.
+	double temp_sum[M_ary] = { 0, }; // Mảng lưu tổng giá trị tín hiệu tương ứng với từng trạng thái. Dùng để tính trung bình hoặc phân tích các trạng thái của modulation code. Dùng để tính trung bình hoặc phân tích các trạng thái của modulation code.
 
+	double mis_sigma = 0.0; // Lưu giá trị sai lệch (misalignment noise) được tính toán từ SNR hoặc các thông số khác.
+	double sigma = 0.0;										//// Using SNR_DB to calculate and store the value of sigma. Độ lệch chuẩn (standard deviation) của nhiễu Gaussian trong kênh truyền. Giá trị này được tính toán từ SNR (Signal-to-Noise Ratio).
+	double snr;												//// Using SNR_DB to calculate and store the value of SNR. Tỉ số tín hiệu trên nhiễu (SNR), được lưu dưới dạng số thực (linear SNR).
+	double eqout_total_x = 0, eqout_average_x = 0, eqout_total_y = 0, eqout_average_y = 0; // Tổng và trung bình của tín hiệu đầu ra sau khi qua bộ cân bằng (Equalizer) theo trục X. Tổng và trung bình của tín hiệu đầu ra sau khi qua bộ cân bằng (Equalizer) theo trục Y.
+	double chout_average[M_ary - 1] = { 0, }; // Mảng lưu giá trị trung bình của tín hiệu đầu ra từ kênh truyền (channel output) cho các trạng thái modulation code (trừ trạng thái cuối cùng).
+	char strH[255]; // Mảng ký tự để lưu tên hoặc đường dẫn của tệp liên quan đến kênh truyền (channel).
+	// Kích thước 255 đảm bảo đủ lớn để chứa các chuỗi dài.
 
+	double** h;												//// Storing the channel. Ma trận lưu thông tin của kênh truyền (channel response). Được sử dụng để mô phỏng quá trình tín hiệu đi qua kênh và thêm nhiễu.
+	double** Target_Coef;									//// Setting the coefficients of the PR Target. Ma trận lưu hệ số của bộ lọc mục tiêu PR (Partial Response Target). Hệ số này được sử dụng trong các thuật toán như PRML Convolution hoặc Viterbi.
 
-	unsigned long count = 0;
-	unsigned long block_count = 0;
-	unsigned long count_M_ary = 0;
-	unsigned long count_modul = 0;
-	unsigned long count_modul_M_ary = 0;
-	unsigned long error = 0;
-	unsigned long error_M_ary = 0;
-	unsigned long error_eq = 0;
-	unsigned long error_eq_other = 0;
-	unsigned long error_viterbi[Iteration_Det_Dem * 2] = { 0, };
-	unsigned long error_viterbi_M_ary[Iteration_Det_Dem * 2] = { 0, };
-	unsigned long error_viterbi_M_ary_gg[6] = { 0, };
-	unsigned long error_demodul[Iteration_Det_Dem * 2] = { 0, };
-	unsigned long error_demodul_M_ary[Iteration_Det_Dem * 2] = { 0, };
-	unsigned long error_demodul_check[Iteration_Det_Dem] = { 0, };
+	double** trellis; // Ma trận lưu cấu trúc trellis dùng cho giải mã. Trellis đại diện cho các trạng thái và xác suất chuyển tiếp trong thuật toán SOVA hoặc Viterbi.
 
-	int temp_count[M_ary] = { 0, };
-	double temp_sum[M_ary] = { 0, };
-
-	double mis_sigma = 0.0;
-	double sigma = 0.0;										//// Using SNR_DB to calculate and store the value of sigma
-	double snr;												//// Using SNR_DB to calculate and store the value of SNR
-	double eqout_total_x = 0, eqout_average_x = 0, eqout_total_y = 0, eqout_average_y = 0;
-	double chout_average[M_ary - 1] = { 0, };
-	char strH[255];
-
-	double** h;												//// Storing the channel
-	double** Target_Coef;									//// Setting the coefficients of the PR Target.
-	double** trellis;
-
-	Target_Coef = (double**)malloc(Target_Order * sizeof(double*));
-	for (i = 0; i < Target_Order; i++)
-		Target_Coef[i] = (double*)malloc(Target_Order * sizeof(double));
+	// Allocate memory for the Target_Coef matrix (Target_Order x Target_Order)
+	// This matrix stores the coefficients for the PR Target filter.
+	// Sau khi được tạo, nó được truyền vào các hàm xử lý như convolution, equalization, hoặc decoding, nơi các giá trị trong ma trận sẽ được sử dụng hoặc cập nhật.
+	Target_Coef = (double**)malloc(Target_Order * sizeof(double*)); // Allocate rows
+	for (i = 0; i < Target_Order; i++) {
+		Target_Coef[i] = (double*)malloc(Target_Order * sizeof(double)); // Allocate columns for each row
+	}
+	// Link docs cụ thể về vai trò của Target_Coef trong bộ lọc PR Target: https://docs.google.com/document/d/1L9zRDMRuHSnI_ra8Q8xmUUons77RcviouuEtCtuT90Q/edit?tab=t.0
 
 	////// For Viterbi and BCJR ///////
+    ////// Allocate memory for trellis structure used in Viterbi and BCJR algorithms ///////
 	trellis = (double**)malloc((int)pow((double)M_ary, Target_Order - 1) * sizeof(double*));
 	for (i = 0; i < pow((double)M_ary, Target_Order - 1); i++)
-		trellis[i] = (double*)calloc(M_ary * 2, sizeof(double));
+		trellis[i] = (double*)calloc(M_ary * 2, sizeof(double)); // // Allocate columns for each row and initialize to 0
 
 	////// For Viterbi and BCJR : gukhui's graduation ///////
 	trellis_A = (double**)malloc((int)pow((double)M_ary - 2, Target_Order - 1) * sizeof(double*));
@@ -404,69 +413,90 @@ void main()
 	double* Pridictor_Coef_y = (double*)calloc(Pridictor_Length + 1, sizeof(double));	//// Storing the coefficients of the Equalizer.
 
 	///// For modulation codes /////
-	int* input_park_2_3_4ary = (int*)calloc(Data_Size * (Data_Size / 3) * 2, sizeof(int));
-	int* output_park_2_3_4ary = (int*)calloc(Data_Size * (Data_Size / 3) * 2, sizeof(int));
-	int* input_kim_3_4_4ary = (int*)calloc((Data_Size / 2) * (Data_Size / 2) * 3, sizeof(int));
-	int* output_kim_3_4_4ary = (int*)calloc((Data_Size / 2) * (Data_Size / 2) * 3, sizeof(int));
-	int* input_sun_park_6_9_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 3) * 6, sizeof(int));
-	int* output_sun_park_6_9_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 3) * 6, sizeof(int));
+	// For Park 2/3 4-ary modulation
+	int* input_park_2_3_4ary = (int*)calloc(Data_Size * (Data_Size / 3) * 2, sizeof(int));  // Input data for Park 2/3 modulation
+	int* output_park_2_3_4ary = (int*)calloc(Data_Size * (Data_Size / 3) * 2, sizeof(int)); // Output data for Park 2/3 modulation
 
-	int* input_chi_46_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 2) * 4, sizeof(int));
-	int* output_chi_46_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 2) * 4, sizeof(int));
+	// For Kim 3/4 4-ary modulation
+	int* input_kim_3_4_4ary = (int*)calloc((Data_Size / 2) * (Data_Size / 2) * 3, sizeof(int));  // Input data for Kim 3/4 modulation
+	int* output_kim_3_4_4ary = (int*)calloc((Data_Size / 2) * (Data_Size / 2) * 3, sizeof(int)); // Output data for Kim 3/4 modulation
 
-	int* input_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int));
-	int* output_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int));
+	// For Sun-Park 6/9 4-ary modulation
+	int* input_sun_park_6_9_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 3) * 6, sizeof(int));  // Input data for Sun-Park 6/9 modulation
+	int* output_sun_park_6_9_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 3) * 6, sizeof(int)); // Output data for Sun-Park 6/9 modulation
+
+	// For Chi 4/6 4-ary modulation
+	int* input_chi_46_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 2) * 4, sizeof(int));  // Input data for Chi 46 modulation
+	int* output_chi_46_4ary = (int*)calloc((Data_Size / 3) * (Data_Size / 2) * 4, sizeof(int)); // Output data for Chi 46 modulation
+
+	// For Chi 24 4-ary modulation
+	int* input_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int));  // Input data for Chi 24 modulation
+	int* output_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int)); // Output data for Chi 24 modulation
 
 
-	double** EI = (double**)malloc(Page_Size * sizeof(double*));
-	int** outLDPC = (int**)malloc(Page_Size * sizeof(int*));
-	for (i = 0; i < Page_Size; i++)
-		outLDPC[i] = (int*)calloc(Page_Size, sizeof(int)), EI[i] = (double*)calloc(Page_Size, sizeof(double));
+	///// Allocate memory for intermediate data and channel operations /////
 
-	int** inLDPC = (int**)malloc(Data_Size * sizeof(int*));							//// binary input
-	for (i = 0; i < Data_Size; i++)
-		inLDPC[i] = (int*)calloc(Data_Size * M_ary, sizeof(int));
-
-	int** inLDPC_symbol = (int**)malloc(Data_Size * sizeof(int*));							//// M-ary symbol input
-	for (i = 0; i < Data_Size; i++)
-		inLDPC_symbol[i] = (int*)calloc(Data_Size, sizeof(int));
-
-	int** inCH = (int**)malloc((Page_Size + (Equalizer_Length / 2) * 2) * sizeof(int*));	//// Data to be input into the channel.
-	for (i = 0; i < Page_Size + (Equalizer_Length / 2) * 2; i++)
-		inCH[i] = (int*)calloc(Page_Size + (Equalizer_Length / 2) * 2, sizeof(int));
-
-	double** outCH = (double**)malloc((Page_Size + (Equalizer_Length / 2) * 2) * sizeof(double*));											//// Data output after passing through the channel.
-
-	for (i = 0; i < Page_Size + (Equalizer_Length / 2) * 2; i++)
-		outCH[i] = (double*)calloc((Page_Size + (Equalizer_Length / 2) * 2), sizeof(double));
-
-	double** outEQ_x = (double**)malloc(Page_Size * sizeof(double*));
-	double** outEQ_y = (double**)malloc(Page_Size * sizeof(double*));
-	int** n_outViterbi = (int**)malloc(Page_Size * sizeof(int*));
-	double** d_outViterbi = (double**)malloc(Page_Size * sizeof(double));
-	double** d_outViterbi_x = (double**)malloc(Page_Size * sizeof(double));
-	double** d_outViterbi_y = (double**)malloc(Page_Size * sizeof(double));
-
-	for (i = 0; i < Page_Size; i++)
-	{
-		outEQ_x[i] = (double*)calloc(Page_Size, sizeof(double));
-		outEQ_y[i] = (double*)calloc(Page_Size, sizeof(double));
-		n_outViterbi[i] = (int*)calloc(Page_Size, sizeof(int));
-		d_outViterbi[i] = (double*)calloc(Page_Size, sizeof(double));
-		d_outViterbi_x[i] = (double*)calloc(Page_Size, sizeof(double));
-		d_outViterbi_y[i] = (double*)calloc(Page_Size, sizeof(double));
-
+// Memory for extrinsic information (EI) and LDPC output
+	double** EI = (double**)malloc(Page_Size * sizeof(double*)); // Extrinsic Information matrix
+	int** outLDPC = (int**)malloc(Page_Size * sizeof(int*));     // LDPC decoded output
+	for (i = 0; i < Page_Size; i++) {
+		outLDPC[i] = (int*)calloc(Page_Size, sizeof(int));       // Initialize LDPC output
+		EI[i] = (double*)calloc(Page_Size, sizeof(double));      // Initialize extrinsic information
 	}
 
-	int* Interleaver_table = (int*)malloc(Page_Size * Page_Size * sizeof(int));
-	int* De_Interleaver_table = (int*)malloc(Page_Size * Page_Size * sizeof(int));
+	// Memory for LDPC binary input tín hiệu đầu vào
+	int** inLDPC = (int**)malloc(Data_Size * sizeof(int*));      // Binary input for LDPC
+	for (i = 0; i < Data_Size; i++) {
+		inLDPC[i] = (int*)calloc(Data_Size * M_ary, sizeof(int)); // Allocate binary input space
+	}
 
-	double** d_Interleaved = (double**)malloc(Page_Size * sizeof(double*));
-	int** n_Interleaved = (int**)malloc(Page_Size * sizeof(int*));
-	for (i = 0; i < Page_Size; i++)
-	{
-		d_Interleaved[i] = (double*)calloc(Page_Size, sizeof(double));
-		n_Interleaved[i] = (int*)calloc(Page_Size, sizeof(int));
+	// Memory for LDPC M-ary symbol input Lưu trữ tín hiệu đầu vào ở dạng ký hiệu M-ary.
+	int** inLDPC_symbol = (int**)malloc(Data_Size * sizeof(int*)); // M-ary input for LDPC
+	for (i = 0; i < Data_Size; i++) {
+		inLDPC_symbol[i] = (int*)calloc(Data_Size, sizeof(int));   // Allocate symbol input space
+	}
+
+	// Memory for channel input Tín hiệu đầu vào cho kênh.
+	int** inCH = (int**)malloc((Page_Size + (Equalizer_Length / 2) * 2) * sizeof(int*)); // Input to the channel
+	for (i = 0; i < Page_Size + (Equalizer_Length / 2) * 2; i++) {
+		inCH[i] = (int*)calloc(Page_Size + (Equalizer_Length / 2) * 2, sizeof(int));     // Initialize channel input
+	}
+
+	// Memory for channel output Tín hiệu đầu ra sau khi đi qua kênh.
+	double** outCH = (double**)malloc((Page_Size + (Equalizer_Length / 2) * 2) * sizeof(double*)); // Output after passing through the channel
+
+	//// Allocate memory for channel output matrix (outCH) ////
+	for (i = 0; i < Page_Size + (Equalizer_Length / 2) * 2; i++)
+		outCH[i] = (double*)calloc((Page_Size + (Equalizer_Length / 2) * 2), sizeof(double)); // Allocate and initialize channel output
+
+	//// Allocate memory for equalizer outputs (X and Y directions) 
+	double** outEQ_x = (double**)malloc(Page_Size * sizeof(double*));  // Equalizer output (X-direction)
+	double** outEQ_y = (double**)malloc(Page_Size * sizeof(double*));  // Equalizer output (Y-direction)
+
+	//// Allocate memory for Viterbi outputs ////
+	int** n_outViterbi = (int**)malloc(Page_Size * sizeof(int*)); // Integer output from Viterbi
+	double** d_outViterbi = (double**)malloc(Page_Size * sizeof(double)); // Double output from Viterbi
+	double** d_outViterbi_x = (double**)malloc(Page_Size * sizeof(double));  // Double output (X-direction)
+	double** d_outViterbi_y = (double**)malloc(Page_Size * sizeof(double));  // Double output (Y-direction)
+
+	for (i = 0; i < Page_Size; i++) {
+		outEQ_x[i] = (double*)calloc(Page_Size, sizeof(double));  // Allocate and initialize equalizer output (X-direction)
+		outEQ_y[i] = (double*)calloc(Page_Size, sizeof(double));  // Allocate and initialize equalizer output (Y-direction)
+		n_outViterbi[i] = (int*)calloc(Page_Size, sizeof(int));   // Allocate and initialize integer Viterbi output
+		d_outViterbi[i] = (double*)calloc(Page_Size, sizeof(double)); // Allocate and initialize double Viterbi output
+		d_outViterbi_x[i] = (double*)calloc(Page_Size, sizeof(double)); // Allocate and initialize double Viterbi output (X-direction)
+		d_outViterbi_y[i] = (double*)calloc(Page_Size, sizeof(double)); // Allocate and initialize double Viterbi output (Y-direction)
+	}
+
+	//// Allocate memory for interleaver and de-interleaver tables ////
+	int* Interleaver_table = (int*)malloc(Page_Size * Page_Size * sizeof(int)); // Interleaver table
+	int* De_Interleaver_table = (int*)malloc(Page_Size * Page_Size * sizeof(int));  // De-interleaver table
+	//// Allocate memory for interleaved data ////
+	double** d_Interleaved = (double**)malloc(Page_Size * sizeof(double*)); // Interleaved double data
+	int** n_Interleaved = (int**)malloc(Page_Size * sizeof(int*)); // Interleaved integer data
+	for (i = 0; i < Page_Size; i++) {
+		d_Interleaved[i] = (double*)calloc(Page_Size, sizeof(double));  // Allocate and initialize double interleaved data
+		n_Interleaved[i] = (int*)calloc(Page_Size, sizeof(int));        // Allocate and initialize integer interleaved data
 	}
 
 	int** en_piece_sun_park;
@@ -617,6 +647,8 @@ void main()
 	{
 		printf("Chi 24 proposal\n");
 	}
+
+
 	for (double SNR_DB = START_SNR - SNR_INTERVAL; SNR_DB < END_SNR;)
 	{
 		SNR_DB += SNR_INTERVAL;
@@ -633,8 +665,8 @@ void main()
 			for (j = 0; j < Equalizer_Length; j++)
 				Equalizer_Coef_x[i][j] = 0, Equalizer_Coef_y[i][j] = 0;
 
-		snr = pow(10, (SNR_DB / 10.0));
-		sigma = float(POWER / (snr));
+		snr = pow(10, (SNR_DB / 10.0)); // Công thức đã có, cứ vậy mà ốp
+		sigma = float(POWER / (snr)); // Được dùng để mô phỏng nhiễu kênh
 
 		while (block_count < Training_Block && DETECTOR != 3)
 		{
@@ -728,7 +760,9 @@ void main()
 					exit(0);
 				}
 				for (i = 0; i < (Data_Size / 3) * (Data_Size / 2) * 4; i++)
-					input_chi_46_4ary[i] = rand() % M_ary, count_modul += 2, count_modul_M_ary++;
+					input_chi_46_4ary[i] = rand() % M_ary, 
+					count_modul += 2, 
+					count_modul_M_ary++;
 				Encode_chiProposal46_4ary(inLDPC_symbol, input_chi_46_4ary, Page_Size);
 				count_M_ary += Page_Size * Page_Size;
 				count += Page_Size * Page_Size * 2;
@@ -770,6 +804,7 @@ void main()
 			HoloChannel(h, SigmaB, mis_sigma, SELL, Unit_Sell);
 			Hologram_ChannelOut(outCH, h, inCH, Page_Size + (Equalizer_Length / 2) * 2, SELL, sigma);
 
+			// Tính toán đầu ra sau khi nhận được kết quả nằm ở outCH
 			for (i = 0; i < M_ary; i++)
 				temp_count[i] = 0, temp_sum[i] = 0;
 			for (i = Equalizer_Length / 2; i < Page_Size + (Equalizer_Length / 2); i++)
@@ -897,7 +932,6 @@ void main()
 					if (input_chi_46_4ary[i] % 2 != output_chi_46_4ary[i] % 2)
 						error_demodul[1]++;
 				}
-
 			}
 
 
@@ -1089,7 +1123,7 @@ void main()
 
 }
 
-
+// 1
 void HoloChannel(double** h, double SigmaB, double Mis_alignment_sigma, int SELL, int Unit_Sell)
 {
 	int i, j, l, m;
@@ -1140,8 +1174,13 @@ void HoloChannel(double** h, double SigmaB, double Mis_alignment_sigma, int SELL
 		free(temp_h[i]);
 	free(temp_h);
 }
+// 3
 void PR_Target_set(double** Target_Coef, int target_order)											//// Setting the coefficients of the PR Target according to the channel model.
 {
+	// Ma trận 3x3
+	// 010
+	// 131
+	// 010
 	if (target_order == 3)
 	{
 		Target_Coef[0][0] = 0, Target_Coef[0][1] = 1, Target_Coef[0][2] = 0;
@@ -1213,6 +1252,7 @@ void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order)
 
 	free(temp_trel_a);
 }
+// 2
 void Hologram_ChannelOut(double** outCH, double** h, int** inCH, int Page_Size, int SELL, double sigma)
 {
 	int i, j, x, y;
@@ -1242,6 +1282,7 @@ void Hologram_ChannelOut(double** outCH, double** h, int** inCH, int Page_Size, 
 		}
 	}
 }
+// 4
 void Hologram_EqualizerOut_x(double** outEQ, double** eq_coef, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int Training, int** inCH, double** Target_Coef, int Target_Order)
 {
 	int i, j, l, m;
@@ -1314,6 +1355,7 @@ void Hologram_EqualizerOut_y(double** outEQ, double** eq_coef, double** inEQ, in
 		}
 	}
 }
+// 5
 void NPML_Pridictor_x(double* Pridictor_Coef_x, double** inEQ, int Page_Size, int SELL, int Equalizer_Length, int** inCH, double** Target_Coef, int Target_Order, int Pridictor_Length)
 {
 	int i, j, l, m;
@@ -1398,6 +1440,7 @@ void NPML_Pridictor_y(double* Pridictor_Coef_y, double** inEQ, int Page_Size, in
 	}
 	free(Pridictor_Memory);
 }
+// 6  2D soft-output Viterbi algorithm (SOVA) as the 2D detection for the HDS systems 
 void Hologram_SOVA_x(double** viterbi_out, double** eq_out, double** EI, double** trellis, double* Pridictor_Coef, int Pridictor_Length, int Target_Order, int Page_Size, int depth)
 {
 	Target_Order--;
@@ -1761,7 +1804,7 @@ void Hologram_SOVA_y(double** viterbi_out, double** eq_out, double** EI, double*
 	free(Viterbi_State), free(Viterbi_Path), free(Viterbi_whereState), free(Viterbi_error_Memory);
 	free(differ);
 }
-
+// 7 To combat ISI, based on the one-dimensional (1D) partial response maximum likelihood (PRML) detection scheme
 void PRML_Convolution_gg_grad_23(double** trellis, double* Target_Coef, int Target_Order, int in_size, int* input)
 {
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////

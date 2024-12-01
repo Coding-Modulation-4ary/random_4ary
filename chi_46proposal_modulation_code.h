@@ -1,4 +1,4 @@
-void Encode_chiProposal46_4ary(int **PAGE, int *input_1Ddata, int Page_Size)
+﻿void Encode_chiProposal46_4ary(int **PAGE, int *input_1Ddata, int Page_Size)
 {
 	//////////////////////////////////////////////////////////////////////
 	//		simple encoding scheme 6 symbol (12bit) -> 9 symbol (18bit)	//
@@ -17,6 +17,7 @@ void Encode_chiProposal46_4ary(int **PAGE, int *input_1Ddata, int Page_Size)
 
 			for (k = 0; k < 4; k++)
 			{
+				// Chuyển hóa từng bit 1 trong 4 bit đầu vào
 				input[k] = input_1Ddata[(i*Page_Size/2 + j) * 4 + k];
 				//temp_piece += input[k] << (3 - k);
 			}
