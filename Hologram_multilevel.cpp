@@ -16,7 +16,7 @@ const double DELTA = 0.000005;						//// Defines the range of variation for the 
 								//// but it may fail to find the optimal value. If the variation is small, it may converge more precisely.
 const int Training_Block = 3; // Số khối dữ liệu dùng để huấn luyện mô hình.
 const int M_ary = 4;								//// the number of total symbols (2 ary = 1but (binary), 4 ary = 2bit, 3 ary = 1.5bit)
-const int BLOCK = 5;      						//// the total block. Tổng số khối dữ liệu để xử lý.
+const int BLOCK = 1000;      						//// the total block. Tổng số khối dữ liệu để xử lý.
 const int Page_Size = 1024;							//// Block size of the hologram. Kích thước của mỗi khối dữ liệu.
 const int Data_Size = Page_Size;					//// Kích thước dữ liệu tương tự như Page_Size.
 const double SigmaB = 1.0;							////  Noise level of the hologram. Mức nhiễu (Noise level) trong tín hiệu holographic.
@@ -29,21 +29,25 @@ const int Adaptive_Length = 5;								//// Adaptive length. Độ dài của b�
 
 const double Mis_const = 1;								//// Specifies the constant for Mis-alignment. Chỉ định giá trị hằng cho độ lệch (Mis-alignment)
 //// 0: Random, 1: const value (Mis_alignment_x, Mis_alignment_y)
-const double Mis_alignment_dB = 30;  // Mức nhiễu (dB) do sai lệch.
+const double Mis_alignment_dB = 0;  // Mức nhiễu (dB) do sai lệch.
 const double Mis_alignment_x = 0.0;  // Độ lệch trên trục X.
 const double Mis_alignment_y = 0.0;  // Độ lệch trên trục Y.
 const int Target_Order = 3;								//// Order of the PR Target filter. Must be an odd number. // Bậc của bộ lọc mục tiêu PR (phải là số lẻ).
 const int depth = 29;								//// viterbi constraint // Độ sâu ràng buộc của thuật toán Viterbi.
 
+
 const int noise_free = 1;								//// 0 : noise free, 1: noise exist
-const double START_SNR = 10;//int((SigmaB+0.0001)/0.05-36);  // Giá trị SNR ban đầu.
-const double END_SNR = START_SNR; // Giá trị SNR kết thúc.
+const double START_SNR = 8;//int((SigmaB+0.0001)/0.05-36);  // Giá trị SNR ban đầu.
+const double END_SNR = 18; // Giá trị SNR kết thúc.
 const double SNR_INTERVAL = 1; // Bước nhảy của SNR giữa các lần lặp.
 
 const char* mis[3] = { "mis0", "mis10", "mis20" }; // Các mức sai lệch khác nhau để kiểm tra.
 const int checkHist = 0; //1, lay hist // 1: Lưu histogram, 0: Không lưu.
-const int Encoder = 11; // Phương pháp mã hóa: 
+// const int Encoder = 11; // Phương pháp mã hóa: 
 //// 0: random, 10: 24mc_chi, 11: 46mc_chi
+
+const int Encoder = 0; // random data
+
 const char* s_encoder[10] = { "ran","prof_park","kim_3_4","sun_park_69","kim_2_3","seungmin_69","gg_grad_23_modulation_kim","gg_grad_23_modulation_prof","gg_dmin2","gg_dmin2_state" };  // Các phương pháp mã hóa tín hiệu.
 const int DRAWING_BER_CURVE = 1;				//// 0: float, 1: int
 
@@ -111,6 +115,7 @@ void PR_Target_set(double** Target_Coef, int target_order);
  * - Target_Coef: Coefficients of the PR Target filter.
  * - Target_Order: Order of the PR Target filter.
  */
+void PR_Target_set_5_6(double** Target_Coef, int target_order);
 void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order);
 /*
  * Simulates the output of the holographic channel.
@@ -208,6 +213,7 @@ void PRML_Convolution_gg_grad_23(double** trellis, double* Target_Coef, int Targ
 /*
  * Similar to PRML_Convolution_gg_grad_23 but applies to specific modular trellises.
  */
+void PRML_Convolution_5_6(double** trellis, double* Target_Coef, int Target_Order);
 void PRML_Convolution_for_modul_gg_grad_23(int*** trellis_modul);
 void PRML_Convolution_for_modul_gg_grad_23_prof(int*** trellis_modul);
 void PRML_Convolution_for_modul_gg_grad_23_prof_method0(int**** trellis_modul);
@@ -361,7 +367,7 @@ void main()
 	// Link docs cụ thể về vai trò của Target_Coef trong bộ lọc PR Target: https://docs.google.com/document/d/1L9zRDMRuHSnI_ra8Q8xmUUons77RcviouuEtCtuT90Q/edit?tab=t.0
 
 	////// For Viterbi and BCJR ///////
-    ////// Allocate memory for trellis structure used in Viterbi and BCJR algorithms ///////
+	////// Allocate memory for trellis structure used in Viterbi and BCJR algorithms ///////
 	trellis = (double**)malloc((int)pow((double)M_ary, Target_Order - 1) * sizeof(double*));
 	for (i = 0; i < pow((double)M_ary, Target_Order - 1); i++)
 		trellis[i] = (double*)calloc(M_ary * 2, sizeof(double)); // // Allocate columns for each row and initialize to 0
@@ -432,7 +438,6 @@ void main()
 	// For Chi 24 4-ary modulation
 	int* input_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int));  // Input data for Chi 24 modulation
 	int* output_chi_24_4ary = (int*)calloc(Data_Size * (Data_Size / 4) * 2, sizeof(int)); // Output data for Chi 24 modulation
-
 
 	///// Allocate memory for intermediate data and channel operations /////
 
@@ -519,8 +524,8 @@ void main()
 		}
 	}
 
+	// Không ảnh hưởng vì nó chỉ tính cho Encoder = 10, còn Encoder = 12 của khanh
 	FILE* OUTchi_24;
-
 
 	int** piece_chi_24 = (int**)malloc(16 * sizeof(int*));
 	for (i = 0; i < 16; i++)
@@ -539,8 +544,11 @@ void main()
 	mis_sigma = sqrt(float(POWER / (snr)));
 
 	HoloChannel(h, SigmaB, mis_sigma, SELL, Unit_Sell);
+	// Xây dựng target coef dựa trên targer order
 	PR_Target_set(Target_Coef, Target_Order);
+	// Từ target_coef và target_order, xây dựng lên bảng trellis data 
 	PRML_Convolution(trellis, Target_Coef[Target_Order / 2], Target_Order);
+
 
 	if (Encoder == 6)
 		PRML_Convolution_for_modul_gg_grad_23(trellis_modul);
@@ -618,7 +626,7 @@ void main()
 		printf("Seungmin's 6/9 modulation code\n");
 		fprintf(fber, "Seungmin's 6/9 modulation code\n");
 	}
-	else if (Encoder == 11)
+	else if (Encoder == 12)
 	{
 		printf("chi's 4/6 modulation code\n");
 		//fprintf(fber, "Seungmin's 6/9 modulation code\n");
@@ -689,10 +697,7 @@ void main()
 							inLDPC_symbol[i][j] = (inLDPC[i][j * 2] << 1) + inLDPC[i][j * 2 + 1], count_M_ary++;
 				}
 			}
-
-
-
-			else if (Encoder == 11)
+			else if (Encoder == 12)
 			{
 				if (M_ary != 4)
 				{
@@ -706,6 +711,7 @@ void main()
 				count += Page_Size * Page_Size * 2;
 			}
 
+
 			for (i = 0; i < Page_Size + (Equalizer_Length / 2) * 2; i++)
 				for (j = 0; j < Page_Size + (Equalizer_Length / 2) * 2; j++)
 					if ((i > Equalizer_Length / 2 - 1 && i < Page_Size + Equalizer_Length / 2) && (j > Equalizer_Length / 2 - 1 && j < Page_Size + Equalizer_Length / 2))
@@ -714,8 +720,13 @@ void main()
 						inCH[i][j] = 0;
 
 			Hologram_ChannelOut(outCH, h, inCH, Page_Size + (Equalizer_Length / 2) * 2, SELL, sigma);
+
+
 			//Hologram_EqualizerOut_x(outEQ_x, Equalizer_Coef_x, outCH, Page_Size, SELL, Equalizer_Length, 0, inCH, Target_Coef, Target_Order);
 			Hologram_EqualizerOut_y(outEQ_y, Equalizer_Coef_y, outCH, Page_Size, SELL, Equalizer_Length, 0, inCH, Target_Coef, Target_Order);
+
+
+
 			if (NoiseFilter == 1)
 			{
 				NPML_Pridictor_x(Pridictor_Coef_x, outEQ_x, Page_Size, SELL, Equalizer_Length, inCH, Target_Coef, Target_Order, Pridictor_Length);
@@ -725,6 +736,8 @@ void main()
 		}
 		block_count = 0, count = 0, count_M_ary = 0;
 		count_modul = 0, count_modul_M_ary = 0;
+
+
 		while (block_count < BLOCK)
 		{
 			if ((block_count + 1) % 50 == 0)
@@ -750,9 +763,7 @@ void main()
 							inLDPC_symbol[i][j] = (inLDPC[i][j * 2] << 1) + inLDPC[i][j * 2 + 1], count_M_ary++;
 				}
 			}
-
-
-			else if (Encoder == 11)
+			else if (Encoder == 12)
 			{
 				if (M_ary != 4)
 				{
@@ -760,13 +771,15 @@ void main()
 					exit(0);
 				}
 				for (i = 0; i < (Data_Size / 3) * (Data_Size / 2) * 4; i++)
-					input_chi_46_4ary[i] = rand() % M_ary, 
-					count_modul += 2, 
+					input_chi_46_4ary[i] = rand() % M_ary,
+					count_modul += 2,
 					count_modul_M_ary++;
 				Encode_chiProposal46_4ary(inLDPC_symbol, input_chi_46_4ary, Page_Size);
 				count_M_ary += Page_Size * Page_Size;
 				count += Page_Size * Page_Size * 2;
 			}
+			
+
 
 			if (file_see == 1)
 			{
@@ -788,6 +801,9 @@ void main()
 					else
 						inCH[i][j] = 0;
 
+
+
+
 			if (file_see == 1)
 			{
 				OUT = fopen("inCH.dat", "w");
@@ -801,8 +817,13 @@ void main()
 			}
 
 			/////////////////////////////// channel out ///////////////////////////////////////////////
+
+
 			HoloChannel(h, SigmaB, mis_sigma, SELL, Unit_Sell);
 			Hologram_ChannelOut(outCH, h, inCH, Page_Size + (Equalizer_Length / 2) * 2, SELL, sigma);
+
+
+
 
 			// Tính toán đầu ra sau khi nhận được kết quả nằm ở outCH
 			for (i = 0; i < M_ary; i++)
@@ -846,7 +867,9 @@ void main()
 
 			/////////////////////////////// equalization ///////////////////////////////////////////////
 			//Hologram_EqualizerOut_x(outEQ_x, Equalizer_Coef_x, outCH, Page_Size, SELL, Equalizer_Length, 1, inCH, Target_Coef, Target_Order);
+
 			Hologram_EqualizerOut_y(outEQ_y, Equalizer_Coef_y, outCH, Page_Size, SELL, Equalizer_Length, 1, inCH, Target_Coef, Target_Order);
+
 
 			if (file_see == 1)
 			{
@@ -877,8 +900,10 @@ void main()
 			/////////////////////////////// detection ///////////////////////////////////////////////
 			if (DETECTOR == 0)
 			{
-				//Hologram_SOVA_x(d_outViterbi_x, outEQ_x, EI, trellis, Pridictor_Coef_x, Pridictor_Length, Target_Order, Page_Size, depth);
+			//	Hologram_SOVA_x(d_outViterbi_x, outEQ_x, EI, trellis, Pridictor_Coef_x, Pridictor_Length, Target_Order, Page_Size, depth);
+
 				Hologram_SOVA_y(d_outViterbi_y, outEQ_y, EI, trellis, Pridictor_Coef_y, Pridictor_Length, Target_Order, Page_Size, depth);
+			
 
 			}
 			else if (DETECTOR == 7)
@@ -910,7 +935,7 @@ void main()
 
 			/////////////////////////////// demodulation //////////////////////////////////////////////	
 
-			if (Encoder == 11)
+			if (Encoder == 12)
 			{
 				/*Decode_chiProposal46_4ary(output_chi_46_4ary, d_outViterbi_x, Page_Size);
 				for (i = 0; i < (Data_Size / 3)*(Data_Size / 2) * 4; i++)
@@ -922,6 +947,7 @@ void main()
 					if (input_chi_46_4ary[i] % 2 != output_chi_46_4ary[i] % 2)
 						error_demodul[0]++;
 				}	*/
+
 				Decode_chiProposal46_4ary(output_chi_46_4ary, d_outViterbi_y, Page_Size);
 				for (i = 0; i < (Data_Size / 3) * (Data_Size / 2) * 4; i++)
 				{
@@ -932,8 +958,11 @@ void main()
 					if (input_chi_46_4ary[i] % 2 != output_chi_46_4ary[i] % 2)
 						error_demodul[1]++;
 				}
+				/*printf("Index\tInput_chi\tOutput_chi\n");
+				for (int i = 0; i < 200; i++) {
+					printf("%d\t%d\t\t%d\n", i + 1, input_chi_46_4ary[i], output_chi_46_4ary[i]);
+				}*/
 			}
-
 
 			/////////////////////////////// error check ///////////////////////////////////////////////
 			if (M_ary == 4)
@@ -960,12 +989,12 @@ void main()
 						if (inLDPC_symbol[i][j] % 2 != temp_count[0] % 2)
 							error++;
 
-						//if (inLDPC_symbol[i][j] != (int)d_outViterbi_x[i][j])
-						//	error_viterbi_M_ary[0]++;
-						//if (inLDPC_symbol[i][j] >> 1 != (int)d_outViterbi_x[i][j] >> 1)
-						//	error_viterbi[0]++;
-						//if (inLDPC_symbol[i][j] % 2 != (int)d_outViterbi_x[i][j] % 2)
-						//	error_viterbi[0]++;
+						/*if (inLDPC_symbol[i][j] != (int)d_outViterbi_x[i][j])
+							error_viterbi_M_ary[0]++;
+						if (inLDPC_symbol[i][j] >> 1 != (int)d_outViterbi_x[i][j] >> 1)
+							error_viterbi[0]++;
+						if (inLDPC_symbol[i][j] % 2 != (int)d_outViterbi_x[i][j] % 2)
+							error_viterbi[0]++;*/
 
 						if (inLDPC_symbol[i][j] != (int)d_outViterbi_y[i][j])
 							error_viterbi_M_ary[1]++;
@@ -982,9 +1011,9 @@ void main()
 			block_count++;
 		}
 		printf("\n");
-		//printf("count : %d\n count_M_ary : %d\n count_modul : %d\n count_modul_M_ary : %d\n\n",count, count_M_ary, count_modul, count_modul_M_ary);
+		printf("count : %d\n count_M_ary : %d\n count_modul : %d\n count_modul_M_ary : %d\n\n",count, count_M_ary, count_modul, count_modul_M_ary);
 		printf("snr_db : %.1lf\n", SNR_DB);
-		//printf("snr_db : %.1lf\t\tMis snr_db : %.1lf\n", SNR_DB, Mis_alignment_dB);
+		printf("snr_db : %.1lf\t\tMis snr_db : %.1lf\n", SNR_DB, Mis_alignment_dB);
 		printf("channel error : %d\tBER : %.12lf\n", error, (double)error / count);
 		printf("channel M_ary error : %d\tBER : %.12lf\n", error_M_ary, (double)error_M_ary / count_M_ary);
 		printf("viterbi error x : %d\tBER : %.12lf\n", error_viterbi[0], (double)error_viterbi[0] / count);
@@ -993,24 +1022,24 @@ void main()
 		printf("viterbi M_ary error y : %d\tBER : %.12lf\n", error_viterbi_M_ary[1], (double)error_viterbi_M_ary[1] / count_M_ary);
 		if (Encoder != 0)
 		{
-			//printf("modulation error x : %d\tBER : %.12lf\n",error_demodul[0],(double)error_demodul[0]/count_modul);
-			//printf("modulation M_ary error x : %d\tBER : %.12lf\n",error_demodul_M_ary[0],(double)error_demodul_M_ary[0]/count_modul_M_ary);
+			printf("modulation error x : %d\tBER : %.12lf\n",error_demodul[0],(double)error_demodul[0]/count_modul);
+			printf("modulation M_ary error x : %d\tBER : %.12lf\n",error_demodul_M_ary[0],(double)error_demodul_M_ary[0]/count_modul_M_ary);
 			printf("modulation error y : %d\tBER : %.12lf\n", error_demodul[1], (double)error_demodul[1] / count_modul);
 			printf("modulation M_ary error y : %d\tBER : %.12lf\n", error_demodul_M_ary[1], (double)error_demodul_M_ary[1] / count_modul_M_ary);
 		}
 
-		//fprintf(fber, "\n");
-		//fprintf(fber, "snr_db : %.1lf\t\tMis snr_db : %.1lf\n", SNR_DB, Mis_alignment_dB);
+		fprintf(fber, "\n");
+		fprintf(fber, "snr_db : %.1lf\t\tMis snr_db : %.1lf\n", SNR_DB, Mis_alignment_dB);
 		fprintf(fber_outCH, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error / count);
 		fprintf(fber_outCH_Mary, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error_M_ary / count_M_ary);
-		//fprintf(fber,"viterbi error x : %d\tBER : %.12lf\n",error_viterbi[0],(double)error_viterbi[0]/count);
-		//fprintf(fber,"viterbi M_ary error x : %d\tBER : %.12lf\n",error_viterbi_M_ary[0],(double)error_viterbi_M_ary[0]/count_M_ary);
+		fprintf(fber,"viterbi error x : %d\tBER : %.12lf\n",error_viterbi[0],(double)error_viterbi[0]/count);
+		fprintf(fber,"viterbi M_ary error x : %d\tBER : %.12lf\n",error_viterbi_M_ary[0],(double)error_viterbi_M_ary[0]/count_M_ary);
 		fprintf(fber_outSOVA, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error_viterbi[1] / count);
 		fprintf(fber_outSOVA_Mary, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error_viterbi_M_ary[1] / count_M_ary);
 		if (Encoder != 0)
 		{
-			//fprintf(fber,"modulation error x : %d\tBER : %.12lf\n",error_demodul[0],(double)error_demodul[0]/count);
-			//fprintf(fber,"modulation M_ary error x : %d\tBER : %.12lf\n",error_demodul_M_ary[0],(double)error_demodul_M_ary[0]/count_modul_M_ary);
+			fprintf(fber,"modulation error x : %d\tBER : %.12lf\n",error_demodul[0],(double)error_demodul[0]/count);
+			fprintf(fber,"modulation M_ary error x : %d\tBER : %.12lf\n",error_demodul_M_ary[0],(double)error_demodul_M_ary[0]/count_modul_M_ary);
 			fprintf(fber_outDEM, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error_demodul[1] / count_modul);
 			fprintf(fber_outDEM_Mary, "%d\t%.12lf\n", int(SNR_DB / SNR_INTERVAL), (double)error_demodul_M_ary[1] / count_modul_M_ary);
 		}
@@ -1019,19 +1048,19 @@ void main()
 			fprintf(BRIEF_RESULT, "%s_channel(%d)=%.12lf;\n", s_encoder[Encoder], int(SNR_DB / SNR_INTERVAL), (double)error / count);
 			fprintf(BRIEF_RESULT, "%s_channel_M_ary(%d)=%.12lf;\n", s_encoder[Encoder], int(SNR_DB / SNR_INTERVAL), (double)error_M_ary / count_M_ary);
 			fprintf(BRIEF_RESULT, "%%data(x)\n");
-			//fprintf(BRIEF_RESULT,"%s_%s(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_viterbi[0]/count);
-			//fprintf(BRIEF_RESULT,"%s_%s_M_ary(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_viterbi_M_ary[0]/count_M_ary);
+			fprintf(BRIEF_RESULT,"%s_%s(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_viterbi[0]/count);
+			fprintf(BRIEF_RESULT,"%s_%s_M_ary(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_viterbi_M_ary[0]/count_M_ary);
 			fprintf(BRIEF_RESULT, "%s_%s(%d,:)=%.12lf;\n", s_encoder[Encoder], s_detecter[DETECTOR], int(SNR_DB / SNR_INTERVAL), (double)error_viterbi[1] / count);
 			fprintf(BRIEF_RESULT, "%s_%s_M_ary(%d,:)=%.12lf;\n", s_encoder[Encoder], s_detecter[DETECTOR], int(SNR_DB / SNR_INTERVAL), (double)error_viterbi_M_ary[1] / count_M_ary);
 			if (Encoder != 0)
 			{
-				//fprintf(BRIEF_RESULT,"%s_%s_demodul(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_demodul[0]/count_modul);
-				//fprintf(BRIEF_RESULT,"%s_%s_demodul_M_ary(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_demodul_M_ary[0]/count_modul_M_ary);
+				fprintf(BRIEF_RESULT,"%s_%s_demodul(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_demodul[0]/count_modul);
+				fprintf(BRIEF_RESULT,"%s_%s_demodul_M_ary(%d,:)=%.12lf;\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_demodul_M_ary[0]/count_modul_M_ary);
 				fprintf(BRIEF_RESULT, "%s_%s_demodul(%d,:)=%.12lf;\n", s_encoder[Encoder], s_detecter[DETECTOR], int(SNR_DB / SNR_INTERVAL), (double)error_demodul[1] / count_modul);
 				fprintf(BRIEF_RESULT, "%s_%s_demodul_M_ary(%d,:)=%.12lf;\n", s_encoder[Encoder], s_detecter[DETECTOR], int(SNR_DB / SNR_INTERVAL), (double)error_demodul_M_ary[1] / count_modul_M_ary);
 			}
 		}
-		/*
+		
 		if(DRAWING_BER_CURVE==1)
 		{
 			fprintf(BRIEF_RESULT,"%s_channel(%d)=%.12lf;\n",s_encoder[Encoder],int(SNR_DB/SNR_INTERVAL),(double)error/count);
@@ -1045,7 +1074,7 @@ void main()
 				fprintf(BRIEF_RESULT,"%s_%s_demodul_M_ary(%d,:)=[%.12lf %.12lf];\n",s_encoder[Encoder],s_detecter[DETECTOR],int(SNR_DB/SNR_INTERVAL),(double)error_demodul_M_ary[0]/count_modul_M_ary,(double)error_demodul_M_ary[1]/count_modul_M_ary);
 			}
 		}
-		*/
+		
 	}
 
 
@@ -1213,6 +1242,61 @@ void PR_Target_set(double** Target_Coef, int target_order)											//// Settin
 		Target_Coef[6][0] = 0, Target_Coef[6][1] = 0, Target_Coef[6][2] = 0, Target_Coef[6][3] = 0, Target_Coef[6][4] = 0, Target_Coef[6][5] = 0, Target_Coef[6][6] = 0;
 	}
 }
+
+void PR_Target_set_5_6(double** Target_Coef, int target_order) {
+	if (target_order == 4) {
+		Target_Coef[0][0] = 1, Target_Coef[0][1] = 1, Target_Coef[0][2] = 0, Target_Coef[0][3] = 0;
+		Target_Coef[1][0] = 1, Target_Coef[1][1] = 4, Target_Coef[1][2] = 4, Target_Coef[1][3] = 1;
+		Target_Coef[2][0] = 0, Target_Coef[2][1] = 0, Target_Coef[2][2] = 1, Target_Coef[2][3] = 1;
+	}
+}
+
+void PRML_Convolution_5_6(double** trellis, double* Target_Coef, int Target_Order)
+{
+	// Giảm Target_Order để phù hợp với các trạng thái được xét
+	Target_Order--;
+
+	// Tổng số trạng thái trong trellis
+	int total_states = (int)pow((double)4, Target_Order); // 4-ary, Target_Order = 4 -> 4^3 = 64 trạng thái
+
+	// Mảng tạm thời để lưu các trạng thái trước
+	int* temp_trel_a = (int*)calloc(Target_Order, sizeof(int));
+
+	// Thiết lập reference_bit (chuyển đổi trạng thái với đầu vào 0, 1, 2, 3)
+	for (int i = 0; i < total_states; i++) {
+		for (int j = 0; j < 4; j++) { // 4 đầu vào
+			trellis[i][j] = i % 4; // Trạng thái đích là phần dư khi chia cho 4
+		}
+	}
+
+	// Thiết lập reference_value (giá trị tham chiếu)
+	for (int i = 0; i < total_states; i++) {
+		// Tính toán trạng thái trước từ chỉ số trạng thái hiện tại
+		for (int k = 0; k < Target_Order; k++) {
+			temp_trel_a[k] = (i / (int)pow((double)4, k)) % 4; // Trích xuất từng trạng thái trước
+		}
+
+		// Tính toán giá trị tham chiếu cho từng đầu vào
+		for (int k = 0; k < 4; k++) { // Với mỗi đầu vào 0, 1, 2, 3
+			trellis[i][4 + k] = 0; // Bắt đầu từ cột thứ 4 (reference_value)
+
+			// Công thức tổng hợp giá trị tham chiếu
+			for (int j = 0; j < Target_Order; j++) {
+				trellis[i][4 + k] += Target_Coef[j] * temp_trel_a[j];
+			}
+			// Thêm ảnh hưởng từ đầu vào hiện tại
+			trellis[i][4 + k] += (Target_Coef[Target_Order] * k);
+
+			// Chuẩn hóa giá trị tham chiếu
+			trellis[i][4 + k] /= 3; // (M_ary - 1) = 4 - 1 = 3
+		}
+	}
+
+	// Giải phóng bộ nhớ tạm thời
+	free(temp_trel_a);
+}
+
+
 void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order)
 {
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1223,7 +1307,7 @@ void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order)
 	int total_states = (int)pow((double)M_ary, Target_Order);
 
 
-	int* temp_trel_a = (int*)calloc(Target_Order, sizeof(int));
+	int* temp_trel_a = (int*)calloc(Target_Order, sizeof(int)); // mảng này có 2 value
 
 	//// setting reference_bit ////
 	for (i = 0; i < total_states; i++)
@@ -1232,13 +1316,14 @@ void PRML_Convolution(double** trellis, double* Target_Coef, int Target_Order)
 			trellis[i][j] = i % M_ary;
 	}
 	///////////////////////////////
-
+	//std::cout << "Target_Order: " << std::endl;
 	for (i = 0; i < Target_Order; i++)
-		temp_trel_a[i] = 0;										// Initialize to 0
+		temp_trel_a[i] = 0;
 	for (i = 0; i < total_states; i++)
 	{
-		for (k = 0; k < Target_Order; k++)
+		for (k = 0; k < Target_Order; k++) 
 			temp_trel_a[k] = (i / (int)pow((double)M_ary, k)) % M_ary;
+
 		for (k = 0; k < M_ary; k++)
 		{
 			trellis[i][M_ary + k] = 0;

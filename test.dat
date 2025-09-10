@@ -1,0 +1,53 @@
+Multilevel Hologram sigmaB 1.00, Sell 5, unit_sell 11, Target_Order 3, Equalizer_Length 5
+Quantization 0, page_size 1024, block 1000, total_bit 1048576000
+Adaptive_Length 5, Pridictor_Length 3, NoiseFilter 0, Adaptive 0, NF Adaptive 0
+DELTA 0.000005, Detector is 1D_Viterbi, Misalignment (0.00 0.00), 
+Target is
+0.0 1.0 0.0 
+1.0 3.0 1.0 
+0.0 1.0 0.0 
+No modulation (random) code
+
+snr_db : 8.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 9.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 10.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 11.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 12.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 13.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 14.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 15.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 16.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 17.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
+
+snr_db : 18.0		Mis snr_db : 0.0
+viterbi error x : 0	BER : 0.000000000000
+viterbi M_ary error x : 0	BER : 0.000000000000
